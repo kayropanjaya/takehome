@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Take Home Assignment</title>
+<style>
+  :root{
+    --bg:#0a0c1b;--panel:#141a2f;--accent:#3b82f6;--accent2:#8b5cf6;
+    --good:#22c55e;--bad:#ef4444;--text:#e5e7eb;--muted:#94a3b8;--ok:#facc15;
+  }
+  *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
+  body{margin:0;background:linear-gradient(160deg,var(--panel),#0f172a);color:var(--text);
+       display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:30px;}
+  h1{color:var(--accent);margin-bottom:10px;text-align:center;}
+  .app{max-width:700px;width:100%;background:rgba(255,255,255,0.04);padding:24px;border-radius:16px;
+       box-shadow:0 8px 20px rgba(0,0,0,0.3);}
+  .progress-section{text-align:center;margin-top:10px;}
+  .progress-text{color:var(--muted);font-size:0.9rem;margin-bottom:4px;}
+  .progress-container{width:100%;background:rgba(255,255,255,0.1);border-radius:10px;height:10px;overflow:hidden;}
+  .progress-bar{height:10px;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 0.4s ease;}
+  .question{font-weight:700;font-size:1.2rem;margin:16px 0;}
+  .choices{display:flex;gap:10px;margin-top:8px;}
+  .btn{flex:1;padding:12px;border:none;border-radius:10px;font-weight:700;cursor:pointer;
+       background:var(--panel);color:var(--text);transition:all 0.2s;}
+  .btn:hover{background:var(--accent);color:#fff;transform:translateY(-2px);}
+  .primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;}
+  .feedback{margin-top:14px;min-height:24px;font-weight:600;}
+  .correct{color:var(--good);}
+  .wrong{color:var(--bad);}
+  .footer{text-align:center;margin-top:20px;color:var(--muted);}
+  input{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);
+       background:rgba(255,255,255,0.05);color:var(--text);}
+  .hidden{display:none;}
+  #summary{display:none;text-align:center;margin-top:20px;}
+  #summary h2{color:var(--accent);}
+  #rating{font-size:1.1rem;margin-top:8px;font-weight:bold;}
+  .excellent{color:var(--good);}
+  .good{color:var(--ok);}
+  .tryagain{color:var(--bad);}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);opacity:1;}}
+  .fade-in{animation:fadeIn 0.6s ease-in;}
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1>Take Home Assignment</h1>
+    <p class="muted" style="text-align:center;">Answer true or false, and learn why.</p>
+
+    <div id="namePrompt">
+      <h3 style="text-align:center;">Enter your name to begin:</h3>
+      <input id="userName" placeholder="Your full name">
+      <button id="startBtn" class="btn primary" style="margin-top:10px;width:100%;">Start Quiz</button>
+    </div>
+
+    <div class="progress-section hidden" id="progressSection">
+      <div id="progressText" class="progress-text"></div>
+      <div class="progress-container">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+    </div>
+
+    <div id="quizArea" class="hidden">
+      <div id="question" class="question"></div>
+      <div class="choices">
+        <button id="btnTrue" class="btn">True</button>
+        <button id="btnFalse" class="btn">False</button>
+      </div>
+      <div id="feedback" class="feedback"></div>
+      <div style="text-align:center;margin-top:15px;">
+        <button id="nextBtn" class="btn primary" style="display:none;">Next ➜</button>
+      </div>
+    </div>
+
+    <div id="summary" class="fade-in">
+      <h2>Quiz Complete 🎉</h2>
+      <p id="scoreText"></p>
+      <div id="rating"></div>
+      <p id="saveStatus" style="margin-top:10px;"></p>
+      <button id="restartBtn" class="btn primary" style="margin-top:15px;">Restart Quiz</button>
+    </div>
+
+    <div class="footer">Results automatically saved to Google Sheet (admin only)</div>
+  </div>
+
+<script>
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbwUsuf9SESCtU-UgWBCFDsk94MQfdVu6EnEga4RAkb5XmK_xRGCjC6xnIvEqL-3S2Gt/exec";
+
+const questions = [
+  {q:"If a celebrity posted information about the world, its 100% real and can be trusted.",a:false,e:"what celebrities posted sometimes might not be entirely true or trusted, it could be fake news thats given to them."},
+  {q:"fake news could spread faster then real news.",a:true,e:"people often gets manipulated by fake news and often thinks its real so they spread it to their friends or family instantly."},
+  {q:"Every information online is trusted.",a:false,e:"people or bots could spread fake news by using photo shops or AI."},
+  {q:"You should always check the source of the information you get before spreading the information to your friends and family.",a:true,e:"you should always check if the information you get is true, so you do not accidentally spread fake news to others."},
+  {q:"If a post has many likes and comments, its garunteed to be real and trusted.",a:false,e:"Popularity doesnt not mean that its garunteed to be trusted and real."},
+  {q:"if post includes real pictures, it must be real.",a:false,e:"the pictures only help you visualise the situation, they could be telling a whole different story from just one picture."},
+  {q:"fake videos or pictures are impossible to detect.",a:false,e:"fakes can often be detected by analyzing unnatural movemments, environment or lighting.."},
+  {q:"It’s okay to share an article without reading the body of text, if the title sounds true its okay to spread the information.",a:false,e:"Headlines can be misleading always read the main text where all the information is given out before sharing."},
+  {q:"Bots or fake accounts could help spread fake news.",a:true,e:"people could create chaos by simply programming fake acounts to spread out information thats either real or fake.."},
+  {q:"Images and videos on social media are always trusted or reliable evidence.",a:false,e:"now days people uses AI to create proof for fake news, so it seems trusted and real.."}
+];
+
+let idx = 0, score = 0, userName = "", userAnswers = [];
+
+const qEl = document.getElementById('question');
+const feedback = document.getElementById('feedback');
+const btnT = document.getElementById('btnTrue');
+const btnF = document.getElementById('btnFalse');
+const nextBtn = document.getElementById('nextBtn');
+const summary = document.getElementById('summary');
+const scoreText = document.getElementById('scoreText');
+const ratingEl = document.getElementById('rating');
+const restartBtn = document.getElementById('restartBtn');
+const quizArea = document.getElementById('quizArea');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+const namePrompt = document.getElementById('namePrompt');
+const progressSection = document.getElementById('progressSection');
+const saveStatus = document.getElementById('saveStatus');
+const startBtn = document.getElementById('startBtn');
+
+startBtn.onclick = () => {
+  userName = document.getElementById('userName').value.trim();
+  if(!userName) return alert("Please enter your name first.");
+  namePrompt.classList.add('hidden');
+  quizArea.classList.remove('hidden');
+  progressSection.classList.remove('hidden');
+  renderQuestion();
+};
+
+function renderQuestion(){
+  const q = questions[idx];
+  qEl.textContent = (idx+1) + ". " + q.q;
+  feedback.textContent = "";
+  btnT.disabled = btnF.disabled = false;
+  nextBtn.style.display = "none";
+  updateProgress();
+}
+
+function updateProgress(){
+  const percent = ((idx)/questions.length)*100;
+  progressBar.style.width = percent + "%";
+  progressText.textContent = `Question ${idx+1} of ${questions.length}`;
+}
+
+function answer(isTrue){
+  const q = questions[idx];
+  const correct = q.a === isTrue;
+  userAnswers.push({question:q.q, answer:isTrue, correct});
+  btnT.disabled = btnF.disabled = true;
+  feedback.textContent = (correct?"✅ Correct — ":"❌ Wrong — ") + q.e;
+  feedback.className = "feedback " + (correct?"correct":"wrong");
+  nextBtn.style.display = "inline-block";
+  if(correct) score++;
+}
+
+function next(){
+  idx++;
+  if(idx>=questions.length){
+    progressBar.style.width = "100%";
+    showSummary();
+  }else renderQuestion();
+}
